@@ -4,16 +4,13 @@ import sys
 import numpy.random
 from sklearn.datasets import fetch_mldata
 import sklearn.preprocessing
-import pickle
 import matplotlib.pyplot as plt
+from sklearn import svm
+import math
 
 dir_path = repr(os.path.dirname(os.path.realpath(sys.argv[0]))).strip("'")
 
-# mnist = fetch_mldata('MNIST original')
-# with open('mnist.pkl', 'wb') as output:
-#     pickle.dump(mnist, output, pickle.HIGHEST_PROTOCOL)
-with open('mnist.pkl', 'rb') as input:
-    mnist = pickle.load(input)
+mnist = fetch_mldata('MNIST original')
 
 data = mnist['data']
 labels = mnist['target']
@@ -31,7 +28,7 @@ validation_labels = (labels[train_idx[6000:]] == pos) * 2 - 1
 test_data_unscaled = data[60000 + test_idx, :].astype(float)
 test_labels = (labels[60000 + test_idx] == pos) * 2 - 1
 
-# Preprocessing
+# Pre-processing
 train_data = sklearn.preprocessing.scale(train_data_unscaled, axis=0, with_std=False)
 validation_data = sklearn.preprocessing.scale(validation_data_unscaled, axis=0, with_std=False)
 test_data = sklearn.preprocessing.scale(test_data_unscaled, axis=0, with_std=False)
@@ -80,9 +77,10 @@ def assignment_2_a():
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.set_xscale('log')
+    ax.fill_between(ns, percentiles95, percentiles5, facecolors="#3F5D7D")
     ax.plot(ns, means, '.r-', label='Mean')
-    ax.plot(ns, percentiles5, '.b-', label='Percentiles 5')
     ax.plot(ns, percentiles95, '.g-', label='Percentiles 95')
+    ax.plot(ns, percentiles5, '.b-', label='Percentiles 5')
     plt.legend()
     plt.xlabel('train data size', fontsize=18)
     plt.ylabel('accuracy', fontsize=16)
@@ -99,7 +97,7 @@ def assignment_2_b():
 def assignment_2_c():
     classifier, _ = create_perceptron_classifier(train_data, train_labels)
     accuracy = test_perceptron(test_data, test_labels, classifier)
-    print("The Perstron algorithm accuracy using all the train data in the test data was: " + str(accuracy))
+    print("The Perceptron algorithm accuracy using all the train data in the test data was: " + str(accuracy))
 
 
 def assignment_2_d():
@@ -115,7 +113,69 @@ def assignment_2_d():
     plt.savefig(os.path.join(dir_path, '2_d_false_example_2.png'))
 
 
-assignment_2_a()
-assignment_2_b()
+# assignment_2_a()
+# assignment_2_b()
 assignment_2_c()
-assignment_2_d()
+
+
+# assignment_2_d()
+
+
+# SVM
+def assignment_3_a():
+    c_options = [math.pow(10, i) for i in numpy.linspace(-10, 10, 100)]
+    train_result_accuracy = []
+    validation_result_accuracy = []
+    for c in c_options:
+        svc = svm.LinearSVC(loss='hinge', fit_intercept=False, C=c)
+        svc.fit(train_data, train_labels)
+        train_accuracy = svc.score(train_data, train_labels)
+        validation_accuracy = svc.score(validation_data, validation_labels)
+        train_result_accuracy.append(train_accuracy)
+        validation_result_accuracy.append(validation_accuracy)
+    max_value = max(validation_result_accuracy)
+    max_index = validation_result_accuracy.index(max_value)
+    my_best_c = c_options[max_index]
+    print("Best c for LinearSVC was: " + str(my_best_c))
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.set_xscale('log')
+    ax.plot(c_options, train_result_accuracy, 'r-', label='Train Accuracy', )
+    ax.plot(c_options, validation_result_accuracy, 'b-', label='Validation Accuracy')
+    plt.legend()
+    plt.xlabel('C', fontsize=18)
+    plt.ylabel('accuracy', fontsize=16)
+    fig.savefig(os.path.join(dir_path, '3_a.png'))
+    fig.clf()
+    return my_best_c
+
+
+def assignment_3_c(my_best_c):
+    svc = svm.LinearSVC(loss='hinge', fit_intercept=False, C=my_best_c)
+    svc.fit(train_data, train_labels)
+    plt.imshow(reshape(svc.coef_, (28, 28)), interpolation="nearest")
+    plt.savefig(os.path.join(dir_path, '3_c.png'))
+
+
+def assignment_3_d(my_best_c):
+    svc = svm.LinearSVC(loss='hinge', fit_intercept=False, C=my_best_c)
+    svc.fit(train_data, train_labels)
+    test_accuracy = svc.score(test_data, test_labels)
+    print("LinearSVC with best C had accuracy rate of " + str(test_accuracy))
+
+
+def assignment_3_e():
+    c = 10
+    gamma = 5 * pow(10, -7)
+    svc = svm.SVC(C=c, gamma=gamma)
+    svc.fit(train_data, train_labels)
+    train_accuracy = svc.score(train_data, train_labels)
+    test_accuracy = svc.score(test_data, test_labels)
+    print("RBF SVC kernel with best C=10 and gamma=5*1e-7 had accuracy rate of " + str(
+        train_accuracy) + " on the training set, and " + str(test_accuracy) + " on the test set")
+
+
+best_c = assignment_3_a()
+assignment_3_c(best_c)
+assignment_3_d(best_c)
+assignment_3_e()

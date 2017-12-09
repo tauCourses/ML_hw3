@@ -1,0 +1,24 @@
+Machine learning - Assignment 3
+
+by:
+Matan Harel - 302695721
+    Email - matan.harel.mh@gmail.com
+Ido Kessler - 311398499
+    Email - kessido@gmail.com
+
+Please run hw3.py with python2.
+Please add the parts you want to execute as a command line arguments - 1, 2, 3
+
+You can send few arguments in one run - 3, 1
+You can send 'all' argument to run all of them
+
+The outputs are 8 plots that saved in png format in the same directory as the python file located.
+
+part a runs in less than 3 mins thanks to few optimizations:
+The distances for each image in the test set is calculated just once, and for each k just the first k elements are taking into consideration.
+The distances are saved in order so entering a new element is just log k what relief the time to n*log k instead of n*log n
+In part d, the last calculation is re-used, each time 100 training added to the already existed result without calculating the whole set from zero.
+
+
+Enjoy your day,
+Ido & Matan :)

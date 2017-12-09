@@ -73,7 +73,7 @@ def assignment_1():
     fig.clf()
 
     best_k = accurate_rates.index(max(accurate_rates)) + 1
-    print "The k with the best results is %d" % best_k
+    print "The k with the highest accuracy rate is %d" % best_k
     sizes = [i for i in xrange(100,5100,100)]
     test_lists = [([],[]) for x in xrange(len(tests))]
 
@@ -259,7 +259,7 @@ if len(sys.argv) < 2:
 cmds = sys.argv[1:]
 for cmd in cmds:
     if cmd not in ['1', '2', '3', 'all']:
-        print "Unknown argument %s. please run with a, c, d, e or all" % cmd
+        print "Unknown argument %s. please run with 1, 2, 3 or all" % cmd
         exit()
 
 if '1' in cmds or 'all' in cmds:

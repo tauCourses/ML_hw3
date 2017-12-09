@@ -1,19 +1,98 @@
-from numpy import *
-import os
+import math
+import bisect
 import sys
+import os
+from numpy import *
 import numpy.random
+from scipy.stats import mode
 from sklearn.datasets import fetch_mldata
 import sklearn.preprocessing
-import matplotlib.pyplot as plt
 from sklearn import svm
-import math
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pyplot as plt
 
 dir_path = repr(os.path.dirname(os.path.realpath(sys.argv[0]))).strip("'")
 
 mnist = fetch_mldata('MNIST original')
-
 data = mnist['data']
 labels = mnist['target']
+
+
+# k nearest nneighbors
+def knn(images, labels, query_image, k, _labels=None, _nearest=None):
+    k_labels = _labels if _labels is not None else []
+    k_nearest = _nearest if _nearest is not None else []
+
+    for image, label in zip(images, labels):
+        dis = numpy.linalg.norm(image - query_image)
+        inx = bisect.bisect(k_nearest, dis)
+        if inx < k:
+            k_nearest.insert(inx, dis)
+            k_labels.insert(inx, label)
+
+    return k_labels, k_nearest
+
+
+def get_mode_value(test_list, k):
+    return mode(test_list[:k])[0][0]
+
+
+def check_test_data(test_lists, tests_labels, k):
+    succeeded = [True for test_list, label in zip(test_lists, tests_labels) if get_mode_value(test_list, k) == label]
+    return float(len(succeeded)) / len(tests_labels)
+
+def assignment_1():
+    idx = numpy.random.RandomState(0).choice(70000, 11000)
+    train = data[idx[:10000], :].astype(int)
+    train_labels = labels[idx[:10000]]
+    tests = data[idx[10000:], :].astype(int)
+    tests_labels = labels[idx[10000:]]
+
+    ks = [i for i in xrange(1,101,1)]
+    _train_images = train[:1000]
+    _train_labels = train_labels[:1000]
+
+    labels_lists = []
+    for test in tests:  # pre calculation of the distances for each image with all train images
+        labels_lists.append(knn(_train_images, _train_labels, test, max(ks))[0])
+
+    print "With k=10 the accurate rate is %f" % check_test_data(labels_lists, tests_labels, 10)
+
+    accurate_rates = []
+    for k in ks:
+        accurate_rates.append(check_test_data(labels_lists, tests_labels, k))
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(ks, accurate_rates)
+    plt.xlabel('k', fontsize=18)
+    plt.ylabel('Accuracy', fontsize=16)
+    plt.xticks(arange(0, 101, 5))
+    fig.savefig(os.path.join(dir_path, '1_c.png'))
+    fig.clf()
+
+    best_k = accurate_rates.index(max(accurate_rates)) + 1
+    print "The k with the best results is %d" % best_k
+    sizes = [i for i in xrange(100,5100,100)]
+    test_lists = [([],[]) for x in xrange(len(tests))]
+
+    accurate_rates = []
+    for ts in sizes: # ts = train size
+        succeess_counter = 0
+        for i, test in enumerate(tests):
+            test_lists[i] = knn(train[ts-100:ts], train_labels[ts-100:ts], test, best_k, test_lists[i][0], test_lists[i][1])
+            succeess_counter += 1 if get_mode_value(test_lists[i][0], best_k) == tests_labels[i] else 0
+        accurate_rates.append(float(succeess_counter)/len(tests))
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(sizes, accurate_rates)
+    plt.xlabel('Tarining set size', fontsize=18)
+    plt.ylabel('Accuracy', fontsize=16)
+    plt.xticks(arange(0, 5100, 500))
+    fig.savefig(os.path.join(dir_path, '1_d.png'))
+    fig.clf()
 
 neg, pos = 0, 8
 train_idx = numpy.random.RandomState(0).permutation(where((labels[:60000] == neg) | (labels[:60000] == pos))[0])
@@ -37,20 +116,17 @@ test_data = sklearn.preprocessing.scale(test_data_unscaled, axis=0, with_std=Fal
 # Perceptron
 def create_perceptron_classifier(train_data, train_labels):
     w = numpy.zeros_like(train_data[0])
-    for i in range(len(train_data)):
-        dot_product = numpy.dot(w, train_data[i])
+    for data, label in zip(train_data, train_labels):
+        dot_product = numpy.dot(w, data)
         predicted_label = (dot_product > 0) * 2 - 1
-        if predicted_label != train_labels[i]:
-            w += (train_data[i] / numpy.linalg.norm(train_data[i])) * train_labels[i]
+        if predicted_label != label:
+            w += (data / numpy.linalg.norm(data)) * label
     w /= numpy.linalg.norm(w)  # normalize
     return (lambda x: (numpy.dot(w, x) > 0) * 2 - 1), w
 
 
 def test_perceptron(test_data, test_labels, classifier):
-    accuracy = 0
-    for i in range(len(test_data)):
-        if classifier(test_data[i]) == test_labels[i]:
-            accuracy += 1
+    accuracy = len([True for data, label in zip(test_data,test_labels) if classifier(data) == label])
     return float(accuracy) / len(test_data)
 
 
@@ -102,10 +178,8 @@ def assignment_2_c():
 
 def assignment_2_d():
     classifier, _ = create_perceptron_classifier(train_data, train_labels)
-    false_examples = []
-    for i in range(len(test_data)):
-        if classifier(test_data[i]) != test_labels[i]:
-            false_examples.append(test_data_unscaled[i])
+    false_examples = [unscaled for data, label, unscaled in zip(test_data, test_labels, test_data_unscaled) if classifier(data) != label]
+
     false_examples = false_examples[:2]
     plt.imshow(reshape(false_examples[0], (28, 28)), interpolation="nearest")
     plt.savefig(os.path.join(dir_path, '2_d_false_example_1.png'))
@@ -113,12 +187,11 @@ def assignment_2_d():
     plt.savefig(os.path.join(dir_path, '2_d_false_example_2.png'))
 
 
-# assignment_2_a()
-# assignment_2_b()
-assignment_2_c()
-
-
-# assignment_2_d()
+def assignment_2():
+    assignment_2_a()
+    assignment_2_b()
+    assignment_2_c()
+    assignment_2_d()
 
 
 # SVM
@@ -174,8 +247,24 @@ def assignment_3_e():
     print("RBF SVC kernel with best C=10 and gamma=5*1e-7 had accuracy rate of " + str(
         train_accuracy) + " on the training set, and " + str(test_accuracy) + " on the test set")
 
+def assignment_3():
+    best_c = assignment_3_a()
+    assignment_3_c(best_c)
+    assignment_3_d(best_c)
+    assignment_3_e()
 
-best_c = assignment_3_a()
-assignment_3_c(best_c)
-assignment_3_d(best_c)
-assignment_3_e()
+if len(sys.argv) < 2:
+    print "Please enter which part do you want to execute - 1, 2, 3 or all"
+    exit()
+cmds = sys.argv[1:]
+for cmd in cmds:
+    if cmd not in ['1', '2', '3', 'all']:
+        print "Unknown argument %s. please run with a, c, d, e or all" % cmd
+        exit()
+
+if '1' in cmds or 'all' in cmds:
+    assignment_1()
+if '2' in cmds or 'all' in cmds:
+    assignment_2()
+if '3' in cmds or 'all' in cmds:
+    assignment_3()
